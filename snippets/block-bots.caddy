@@ -1,9 +1,27 @@
 # Block common malicious scan paths.
-# Add new patterns here as they appear in Caddy/Cloudflare logs.
-# `path` matches the exact request URI; nested paths like /foo/.env are not blocked.
+#
+# Patterns observed across Caddy/Cloudflare access logs and public honeypot
+# datasets. Categories:
+#   - dotfile probes (.env, .git, .ssh, .DS_Store)
+#   - PHP CMS / panel scans (WordPress, phpMyAdmin, cPanel, Adminer)
+#   - Java app surface (Spring actuator, Tomcat manager)
+#   - dev/CI leaks (.aws, config, dump, backup)
+#   - generic shell-injection routes (cgi-bin, shell, eval)
+#
+# `path` is glob-matched (case-sensitive); leading `*` anchors anywhere.
+# Add new patterns as they appear in access logs — keep grouped by category.
 (BLOCK_BOTS) {
 	@forbidden_paths {
-		path /.env /.git*
+		path \
+			/.env* /.git* /.ssh* /.aws* /.DS_Store /.htaccess \
+			/wp-admin* /wp-login.php /wp-content* /wp-includes* /xmlrpc.php /wordpress* \
+			/phpmyadmin* /pma* /myadmin* /mysql* /adminer* /sqlite* \
+			/cpanel* /webmail* /whm* /admin.php /administrator* \
+			/actuator* /api/v*/actuator* /env /heapdump /trace /metrics \
+			/manager/html /host-manager* /tomcat* \
+			/cgi-bin* /shell* /eval* /vendor/phpunit* \
+			/.aws/credentials /config.json /config.yml /backup.sql /dump.sql \
+			/server-status /server-info /solr* /jenkins*
 	}
 	respond @forbidden_paths "Access Denied" 403
 }

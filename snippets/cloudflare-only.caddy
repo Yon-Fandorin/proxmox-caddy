@@ -1,15 +1,18 @@
-# Block direct (non-Cloudflare) access to the origin.
+# [DEPRECATED — currently unused]
 #
-# IP list = Cloudflare proxy IP ranges (IPv4 + IPv6).
-# Source: https://www.cloudflare.com/ips/
+# Enforces "traffic must come from Cloudflare proxy IPs". Only makes sense when
+# sites are orange-clouded (CF proxy ON). Current setup uses gray cloud (DNS
+# only) so origin sees real client IPs directly — this matcher would 403 every
+# legitimate request.
 #
-# NOTE: Caddy's `remote_ip` matcher does NOT accept dynamic IP sources, so this list
-# must be refreshed manually when Cloudflare publishes new ranges (rare — ~1x/year).
-# Unlike the global `trusted_proxies cloudflare` directive, which auto-updates via
-# the caddy-cloudflare-ip module.
+# Kept as documentation. To re-enable orange-cloud mode:
+#   1. Switch DNS record back to proxied (orange) on Cloudflare
+#   2. Restore `trusted_proxies cloudflare` in Caddyfile global block
+#   3. Re-import CLOUDFLARE_ONLY in each site, drop KR_ONLY (CF handles geo)
 #
-# For full elimination of this list, block non-CF traffic at the firewall layer
-# or switch to a Cloudflare Tunnel (cloudflared).
+# IP list = Cloudflare proxy IP ranges (IPv4 + IPv6). Source:
+# https://www.cloudflare.com/ips/ — Caddy's `remote_ip` matcher accepts no
+# dynamic source, so refresh manually when CF publishes new ranges (rare).
 (CLOUDFLARE_ONLY) {
 	@not_cloudflare {
 		not remote_ip \

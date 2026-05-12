@@ -1,0 +1,63 @@
+# Immich — Self-hosted photo/video backup
+#
+# Origin is gray-cloud (DNS only) so 100MB CF upload cap doesn't apply —
+# 4K video backups go through. In return, we lose CF's edge protection,
+# so the in-Caddy defense stack is mandatory here.
+#
+# Defense layers (in order they reject a request):
+#   CROWDSEC      — bans from log-based scenarios + Community Blocklist
+#   KR_ONLY       — DB-IP Lite mmdb GeoIP filter
+#   BAD_UA        — known scanner/exploit User-Agent strings + empty UA
+#   BLOCK_BOTS    — common scan paths (/wp-admin, /.env, /actuator, ...)
+#   RATE_LIMIT_DEFAULT — 60 req/min per IP, site-wide
+#   RATE_LIMIT_STRICT  — 10 req/5min on /api/auth/* (login brute-force)
+{$IMMICH_SUBDOMAIN}.{$DOMAIN} {
+	import SECURITY_HEADERS
+	import CROWDSEC
+	import KR_ONLY
+	import BAD_UA
+	import BLOCK_BOTS
+	import RATE_LIMIT_DEFAULT immich
+	import LOGGING immich
+
+	# TLS via Cloudflare DNS Challenge (works regardless of orange/gray cloud).
+	tls {
+		dns cloudflare {$CLOUDFLARE_API_TOKEN}
+		resolvers 1.1.1.1 1.0.0.1
+	}
+
+	# Cap request body. Immich's largest legitimate uploads are single 4K
+	# videos (~5–8GB for long clips); 10GB leaves headroom while keeping a
+	# ceiling against storage-exhaustion abuse.
+	request_body {
+		max_size 10GB
+	}
+
+	# Two-handle pattern: explicit auth route + catch-all. Required because
+	# `handle` blocks are only mutually exclusive among themselves — a bare
+	# top-level reverse_proxy alongside a `handle` produces ambiguous routing.
+	#
+	# Auth endpoints get a tighter budget than the rest of the site (60/min
+	# site-wide is fine for browsing but loose for login probing). Both
+	# /api/auth/* (REST) and /auth/* (web) are covered.
+	@auth path /api/auth/* /auth/*
+	handle @auth {
+		import RATE_LIMIT_STRICT immich_auth
+		reverse_proxy http://{$IMMICH_HOST}:{$IMMICH_PORT}
+	}
+
+	# Catch-all: everything that's not auth.
+	# `flush_interval -1` disables response buffering — needed for WebSocket
+	# upgrades (live sync notifications) and SSE-style endpoints to stream
+	# without batching. Read/write timeouts bumped to 1h so a slow mobile
+	# uplink doesn't kill a multi-GB video upload mid-stream.
+	handle {
+		reverse_proxy http://{$IMMICH_HOST}:{$IMMICH_PORT} {
+			flush_interval -1
+			transport http {
+				read_timeout 1h
+				write_timeout 1h
+			}
+		}
+	}
+}

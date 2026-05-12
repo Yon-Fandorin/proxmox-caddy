@@ -1,0 +1,14 @@
+# CrowdSec log acquisition for Caddy access logs.
+#
+# Mounted read-only into the crowdsec container at /var/log/caddy/ from the
+# host's ./data directory (see docker-compose.yml). Caddy's LOGGING snippet
+# writes JSON access logs as /data/<site>-access.log.
+#
+# The `caddy` label routes lines into the crowdsecurity/caddy parser, which
+# extracts client IP, request path, status code, etc. — input for the HTTP
+# scan / CVE / bruteforce scenarios from crowdsecurity/base-http-scenarios.
+source: file
+filenames:
+  - /var/log/caddy/*-access.log
+labels:
+  type: caddy

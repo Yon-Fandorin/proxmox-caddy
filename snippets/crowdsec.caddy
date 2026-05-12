@@ -1,0 +1,13 @@
+# Apply CrowdSec decisions on every request in the importing site.
+#
+# The `crowdsec` directive (from hslatman/caddy-crowdsec-bouncer, bundled in
+# the serfriz image) consults the local decision cache populated by the
+# crowdsec sidecar via LAPI. If the client IP has an active ban decision,
+# the request is rejected before reaching reverse_proxy.
+#
+# Global block in Caddyfile owns api_url + api_key + ticker_interval — this
+# snippet just enables enforcement per-site so opting a site out (e.g. for
+# debugging) is a one-line removal.
+(CROWDSEC) {
+	crowdsec
+}

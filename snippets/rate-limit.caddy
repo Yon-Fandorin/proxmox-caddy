@@ -1,0 +1,36 @@
+# Per-IP request budgets. Backed by mholt/caddy-ratelimit.
+#
+# `key` distinguishes counters across clients. {client_ip} is the request's
+# real client IP after trusted-proxy resolution. Without trusted_proxies it's
+# equivalent to {remote_host} (our current state — no CF proxy in front).
+#
+# zone names must be unique per zone definition; we suffix with the site arg
+# so multiple sites can import the same snippet without collision.
+# Usage:
+#   import RATE_LIMIT_DEFAULT <site-name>
+#   import RATE_LIMIT_STRICT  <site-name>
+
+# General traffic ceiling: 60 requests / minute / IP — generous for normal
+# browsing of admin UIs, throttles scripted scrapers and brute-force probes.
+(RATE_LIMIT_DEFAULT) {
+	rate_limit {
+		zone {args[0]}_default {
+			key    {client_ip}
+			events 60
+			window 1m
+		}
+	}
+}
+
+# Strict: 10 requests / 5 min / IP — for login endpoints. Apply selectively
+# inside a site by wrapping `route /api/auth/* { import RATE_LIMIT_STRICT ... }`
+# rather than at site root. Returns 429 when exhausted.
+(RATE_LIMIT_STRICT) {
+	rate_limit {
+		zone {args[0]}_strict {
+			key    {client_ip}
+			events 10
+			window 5m
+		}
+	}
+}

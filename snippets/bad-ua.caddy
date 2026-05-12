@@ -1,0 +1,19 @@
+# Block requests from known scanner/exploit User-Agent strings (case-insensitive)
+# and empty User-Agents. Bots that bother to mask their UA will slip through —
+# this only catches the lazy half, which is still the majority of background
+# noise on a public IP.
+#
+# Patterns are substring-matched against the UA header. Add new ones here as
+# they appear in access logs. The header matcher uses Caddy's `header_regexp`
+# for case-insensitive substring matching.
+(BAD_UA) {
+	@bad_ua {
+		header_regexp User-Agent (?i)(sqlmap|nikto|nmap|masscan|zgrab|nuclei|wpscan|acunetix|netsparker|fimap|whatweb|dirbuster|gobuster|libredtail)
+	}
+	respond @bad_ua "Access Denied" 403
+
+	@empty_ua {
+		header User-Agent ""
+	}
+	respond @empty_ua "Access Denied" 403
+}

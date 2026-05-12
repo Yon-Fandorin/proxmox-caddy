@@ -6,3 +6,16 @@
 # Caddy runtime data
 data/
 config/
+
+# GeoIP database — populated by scripts/update-dbip.sh, ~5MB binary, monthly
+geoip/
+
+# CrowdSec runtime state. The container manages /etc/crowdsec on its own
+# (collections, scenarios, credentials), so we ignore it entirely. Tracked
+# customisations live in crowdsec/acquis.d/ and crowdsec/whitelists/, which
+# are read-only mounted / copied in by scripts/setup-crowdsec.sh.
+crowdsec/config/
+crowdsec/data/
+
+# Auto-generated snippets (rebuilt by cron). Underscore prefix = generated.
+snippets/_*.caddy

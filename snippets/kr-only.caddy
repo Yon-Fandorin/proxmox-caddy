@@ -1,0 +1,22 @@
+# Allow only requests from South Korea, 403 everything else.
+#
+# Backed by porech/caddy-maxmind-geolocation reading a DB-IP Lite Country mmdb
+# (DB-IP Lite ships in MaxMind format — vendor-agnostic loader). The mmdb is
+# refreshed monthly by scripts/update-dbip.sh and bind-mounted into the
+# container at /usr/share/GeoIP/dbip-country-lite.mmdb.
+#
+# How matching works:
+#   `maxmind_geolocation { allow_countries KR }` returns true when client IP is
+#   KR. We invert with `not` so the 403 fires for the rest of the world.
+#
+# Client IP source: with no trusted_proxies configured, Caddy uses the
+# connection's remote_ip directly — correct for our DNS-only setup.
+(KR_ONLY) {
+	@not_kr {
+		not maxmind_geolocation {
+			db_path /usr/share/GeoIP/dbip-country-lite.mmdb
+			allow_countries KR
+		}
+	}
+	respond @not_kr "Access Denied" 403
+}

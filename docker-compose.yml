@@ -1,11 +1,17 @@
 services:
   caddy:
-    # CaddyBuilds image bundles caddy-dns/cloudflare + WeidiDeng/caddy-cloudflare-ip
-    # so `tls dns cloudflare` and `trusted_proxies cloudflare` both work without rebuild.
-    # Tag tracks Caddy upstream releases: https://github.com/CaddyBuilds/caddy-cloudflare/releases
-    image: ghcr.io/caddybuilds/caddy-cloudflare:2.11.2
+    # serfriz build bundles:
+    #   - caddy-dns/cloudflare              (DNS-01 ACME)
+    #   - WeidiDeng/caddy-cloudflare-ip     (cloudflare IP source — kept for future use)
+    #   - porech/caddy-maxmind-geolocation  (GeoIP matcher; reads DB-IP Lite mmdb)
+    #   - caddyserver/caddy-ratelimit       (rate_limit directive)
+    #   - hslatman/caddy-crowdsec-bouncer   (LAPI client; CrowdSec sidecar provides decisions)
+    # Tag tracks upstream Caddy: https://github.com/serfriz/caddy-custom-builds/releases
+    image: serfriz/caddy-cloudflare-crowdsec-geoip-ratelimit-security:2.11.2
     container_name: caddy
     restart: unless-stopped
+    depends_on:
+      - crowdsec
     # mem_limit intentionally omitted: unprivileged LXC + cgroup v2 lacks the
     # cgroup delegation Docker needs to write memory.max. The LXC's own RAM
     # cap is the effective ceiling.
@@ -20,6 +26,8 @@ services:
       - ./sites:/etc/caddy/sites:ro
       - ./data:/data
       - ./config:/config
+      # GeoIP database mount. mmdb populated by scripts/update-dbip.sh.
+      - ./geoip:/usr/share/GeoIP:ro
     # Cap stdout/stderr so /var/lib/docker/containers doesn't grow unbounded.
     # Per-site access logs already roll via the LOGGING snippet; this covers
     # Caddy's own runtime output captured by the Docker daemon.
@@ -36,3 +44,43 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+
+  crowdsec:
+    # Security Engine: parses Caddy access logs against scenarios, maintains a
+    # local decision DB, and exposes LAPI for the in-Caddy bouncer to poll.
+    # Pin tracks upstream stable: https://github.com/crowdsecurity/crowdsec/releases
+    image: crowdsecurity/crowdsec:v1.6.4
+    container_name: crowdsec
+    restart: unless-stopped
+    environment:
+      # First-boot collection install. Idempotent on subsequent boots.
+      # caddy parser/scenarios + generic HTTP CVE/scan scenarios + linux base.
+      COLLECTIONS: "crowdsecurity/caddy crowdsecurity/base-http-scenarios crowdsecurity/http-cve crowdsecurity/linux"
+      # Keep online API enabled — required for `cscli console enroll` to
+      # publish signals + pull the Community Blocklist subscription.
+    volumes:
+      - ./crowdsec/config:/etc/crowdsec
+      - ./crowdsec/data:/var/lib/crowdsec/data
+      # Read-only mount of Caddy's per-site access logs. acquis.d/caddy.yaml
+      # below globs /var/log/caddy/*-access.log to pick them up.
+      - ./data:/var/log/caddy:ro
+      - ./crowdsec/acquis.d:/etc/crowdsec/acquis.d:ro
+    # LAPI listens on :8080 — exposed only on the internal docker network for
+    # the caddy bouncer to reach. Not published to the host.
+    expose:
+      - "8080"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    # `cscli lapi status` exits non-zero until the local API is reachable —
+    # a meaningful probe vs `cscli version` which only prints build info.
+    healthcheck:
+      test: ["CMD", "cscli", "lapi", "status"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      # Collection install runs in the entrypoint on first boot; on a fresh
+      # install pulling 4 collections over a slow link can take ~60s.
+      start_period: 90s

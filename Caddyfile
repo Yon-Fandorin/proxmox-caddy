@@ -3,13 +3,33 @@
 	# ACME registration email (recommended for Let's Encrypt expiry notices)
 	email {$ACME_EMAIL}
 
-	# Trusted proxies must be configured at the server level (not per-site).
-	# `cloudflare` IP source is provided by github.com/WeidiDeng/caddy-cloudflare-ip
-	# — it auto-fetches and refreshes Cloudflare's published IP ranges, so this list
-	# never needs manual maintenance.
-	servers {
-		trusted_proxies cloudflare
+	# `rate_limit` is provided by github.com/mholt/caddy-ratelimit. Caddy needs an
+	# explicit ordering hint when the directive is used inside site blocks.
+	order rate_limit before basicauth
+
+	# `crowdsec` (from hslatman/caddy-crowdsec-bouncer) must run before any
+	# handler that might respond — block bans before rate-limit/reverse-proxy.
+	order crowdsec first
+
+	# CrowdSec bouncer: polls the crowdsec sidecar's LAPI for active decisions
+	# (bans aggregated from log-based scenarios + Community Blocklist via
+	# Console enrollment) and rejects matching requests in-process.
+	#
+	# api_key is provisioned by scripts/setup-crowdsec.sh which runs
+	# `cscli bouncers add` against the sidecar and writes the result into .env.
+	crowdsec {
+		api_url http://crowdsec:8080
+		api_key {$CROWDSEC_BOUNCER_API_KEY}
+		ticker_interval 15s
 	}
+
+	# trusted_proxies intentionally omitted — origin is exposed directly to the
+	# internet (Cloudflare proxy is OFF / DNS-only). All traffic arrives from real
+	# client IPs, so {client_ip} == {remote_host}. Re-add the cloudflare source
+	# below if the site is ever flipped back to orange-cloud.
+	# servers {
+	#     trusted_proxies cloudflare
+	# }
 
 	# Caddy's own system/runtime log (ACME events, errors, startup, reloads).
 	# Per-site access logs are handled by the LOGGING snippet.

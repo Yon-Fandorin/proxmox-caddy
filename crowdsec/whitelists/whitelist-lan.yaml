@@ -1,0 +1,10 @@
+name: local/whitelist-lan
+description: "Never ban LAN ranges — bans on our own admin IPs would lock us out."
+whitelist:
+  reason: "RFC1918 + loopback"
+  ip:
+    - "127.0.0.1"
+  cidr:
+    - "10.0.0.0/8"
+    - "172.16.0.0/12"
+    - "192.168.0.0/16"

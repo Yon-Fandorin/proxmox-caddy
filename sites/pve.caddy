@@ -1,11 +1,14 @@
 # Proxmox Management UI
 {$PVE_SUBDOMAIN}.{$DOMAIN} {
 	import SECURITY_HEADERS
-	import CLOUDFLARE_ONLY
+	import CROWDSEC
+	import KR_ONLY
+	import BAD_UA
 	import BLOCK_BOTS
+	import RATE_LIMIT_DEFAULT pve
 	import LOGGING pve
 
-	# TLS via Cloudflare DNS Challenge
+	# TLS via Cloudflare DNS Challenge (works regardless of orange/gray cloud).
 	tls {
 		dns cloudflare {$CLOUDFLARE_API_TOKEN}
 		resolvers 1.1.1.1 1.0.0.1
