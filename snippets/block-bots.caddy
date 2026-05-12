@@ -2,8 +2,8 @@
 # Add new patterns here as they appear in Caddy/Cloudflare logs.
 # `path` matches the exact request URI; nested paths like /foo/.env are not blocked.
 (BLOCK_BOTS) {
-    @forbidden_paths {
-        path /.env /.git*
-    }
-    respond @forbidden_paths "Access Denied" 403
+	@forbidden_paths {
+		path /.env /.git*
+	}
+	respond @forbidden_paths "Access Denied" 403
 }

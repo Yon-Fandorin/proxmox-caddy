@@ -20,3 +20,19 @@ services:
       - ./sites:/etc/caddy/sites:ro
       - ./data:/data
       - ./config:/config
+    # Cap stdout/stderr so /var/lib/docker/containers doesn't grow unbounded.
+    # Per-site access logs already roll via the LOGGING snippet; this covers
+    # Caddy's own runtime output captured by the Docker daemon.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    # Probe Caddy's admin API (bound to localhost inside the container by default).
+    # Hitting :80 would return 4xx for an unmatched Host and falsely flag unhealthy.
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:2019/config/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s

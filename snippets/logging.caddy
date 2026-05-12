@@ -1,15 +1,15 @@
 # Per-site access log with rolling.
 # Usage:
-#   import LOGGING <service-name>
+#	import LOGGING <service-name>
 # Produces /data/<service-name>-access.log with rolling.
 #
 # Disk ceiling per service: 5MB (current) + 3 rolled = ~20MB.
 (LOGGING) {
-    log {
-        output file /data/{args[0]}-access.log {
-            roll_size 5mb
-            roll_keep 3
-            roll_keep_for 72h
-        }
-    }
+	log {
+		output file /data/{args[0]}-access.log {
+			roll_size 5mb
+			roll_keep 3
+			roll_keep_for 72h
+		}
+	}
 }
