@@ -133,9 +133,20 @@ EOF
 rc-update add crond default >/dev/null 2>&1 || true
 service crond restart >/dev/null 2>&1 || service crond start >/dev/null 2>&1 || true
 
+# 10. Host-side cscli wrapper — `cscli ...` from anywhere on the LXC routes
+#     into the crowdsec container. Drop into /usr/bin (not /usr/local/bin):
+#     `pct enter` doesn't source /etc/profile so /usr/local/bin is missing
+#     from PATH, but /usr/bin is always there.
+log "Installing cscli wrapper at /usr/bin/cscli..."
+cat > /usr/bin/cscli <<EOF
+#!/bin/sh
+exec docker compose -f $INSTALL_DIR/docker-compose.yml exec crowdsec cscli "\$@"
+EOF
+chmod +x /usr/bin/cscli
+
 log "Done."
 log "Logs:           docker compose logs -f caddy crowdsec"
-log "Decisions:      docker compose exec crowdsec cscli decisions list"
+log "Decisions:      cscli decisions list"
 log "Cron output:    tail -f $INSTALL_DIR/data/cron.log"
 log ""
 log "Final step (optional, recommended): enroll in CrowdSec Console for"

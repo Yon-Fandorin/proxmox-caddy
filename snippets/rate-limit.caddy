@@ -10,13 +10,16 @@
 #   import RATE_LIMIT_DEFAULT <site-name>
 #   import RATE_LIMIT_STRICT  <site-name>
 
-# General traffic ceiling: 60 requests / minute / IP — generous for normal
-# browsing of admin UIs, throttles scripted scrapers and brute-force probes.
+# General traffic ceiling: 300 req/min/IP. Sized for modern SPAs — Immich's
+# first page load alone is 30–50 requests (chunks, favicons, fonts, API),
+# and active thumbnail browsing easily exceeds 100/min. 60/min (the old
+# value) tripped 429s on legitimate first loads. CrowdSec handles the real
+# adaptive defense; this is just a backstop against dumb scrapers.
 (RATE_LIMIT_DEFAULT) {
 	rate_limit {
 		zone {args[0]}_default {
 			key    {client_ip}
-			events 60
+			events 300
 			window 1m
 		}
 	}

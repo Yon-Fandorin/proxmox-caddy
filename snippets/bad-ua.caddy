@@ -1,19 +1,31 @@
 # Block requests from known scanner/exploit User-Agent strings (case-insensitive)
-# and empty User-Agents. Bots that bother to mask their UA will slip through —
-# this only catches the lazy half, which is still the majority of background
-# noise on a public IP.
+# and empty/absent User-Agents. Bots that bother to mask their UA will slip
+# through — this only catches the lazy half, which is still the majority of
+# background noise on a public IP.
 #
-# Patterns are substring-matched against the UA header. Add new ones here as
-# they appear in access logs. The header matcher uses Caddy's `header_regexp`
-# for case-insensitive substring matching.
+# Two matchers cover the threat surface:
+#
+#   @bad_ua  — known scanner/recon UA substrings (case-insensitive).
+#   @no_ua   — header has no actual content: absent entirely (e.g. raw socket
+#              probes) OR present-but-empty (curl -A ""). Implemented as
+#              `not header_regexp User-Agent .+` so a single matcher handles
+#              both cases:
+#                · absent       → Header.Get returns "" → .+ fails → not = true
+#                · present empty → same as above
+#                · present with content → .+ succeeds → not = false (pass)
+#              `header X ""` was tried first but doesn't reliably fire on
+#              absent headers in Caddy 2.11.x — switched to the regex approach.
+#
+# Avoid blocking generic tool UAs (curl, wget, Mozilla*) that legit clients
+# also use.
 (BAD_UA) {
 	@bad_ua {
-		header_regexp User-Agent (?i)(sqlmap|nikto|nmap|masscan|zgrab|nuclei|wpscan|acunetix|netsparker|fimap|whatweb|dirbuster|gobuster|libredtail)
+		header_regexp User-Agent (?i)(sqlmap|nikto|nmap|masscan|zgrab|nuclei|wpscan|acunetix|netsparker|fimap|whatweb|dirbuster|gobuster|libredtail|ffuf|feroxbuster|httpx|ZmEu|morfeus|python-requests|Go-http-client)
 	}
 	respond @bad_ua "Access Denied" 403
 
-	@empty_ua {
-		header User-Agent ""
+	@no_ua {
+		not header_regexp User-Agent .+
 	}
-	respond @empty_ua "Access Denied" 403
+	respond @no_ua "Access Denied" 403
 }

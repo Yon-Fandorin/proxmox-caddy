@@ -9,8 +9,17 @@
 #   KR_ONLY       — DB-IP Lite mmdb GeoIP filter
 #   BAD_UA        — known scanner/exploit User-Agent strings + empty UA
 #   BLOCK_BOTS    — common scan paths (/wp-admin, /.env, /actuator, ...)
-#   RATE_LIMIT_DEFAULT — 60 req/min per IP, site-wide
+#   RATE_LIMIT_DEFAULT — 300 req/min per IP, site-wide
 #   RATE_LIMIT_STRICT  — 10 req/5min on /api/auth/* (login brute-force)
+#
+# Routing structure note: do NOT use `handle` blocks at the top level —
+# Caddy's default directive order puts `handle` BEFORE `respond`, so a
+# catch-all `handle { reverse_proxy }` would consume every request and the
+# KR_ONLY/BAD_UA/BLOCK_BOTS respond rules from imported snippets would
+# never fire. Use `route` (which doesn't terminate without a terminal
+# handler inside) for the auth-only rate-limit, and a top-level
+# `reverse_proxy` as the catch-all — reverse_proxy is last in priority
+# order so respond directives evaluate first.
 {$IMMICH_SUBDOMAIN}.{$DOMAIN} {
 	import SECURITY_HEADERS
 	import CROWDSEC
@@ -33,31 +42,28 @@
 		max_size 10GB
 	}
 
-	# Two-handle pattern: explicit auth route + catch-all. Required because
-	# `handle` blocks are only mutually exclusive among themselves — a bare
-	# top-level reverse_proxy alongside a `handle` produces ambiguous routing.
-	#
-	# Auth endpoints get a tighter budget than the rest of the site (60/min
-	# site-wide is fine for browsing but loose for login probing). Both
-	# /api/auth/* (REST) and /auth/* (web) are covered.
+	# Auth endpoints — extra strict rate-limit layered on top of the
+	# site-level RATE_LIMIT_DEFAULT. `route` runs before `respond`/
+	# `reverse_proxy` in directive order, but since its body has no
+	# terminal handler the request falls through to either a matching
+	# respond (which 403s scanners/bots/non-KR) or the top-level
+	# reverse_proxy below.
 	@auth path /api/auth/* /auth/*
-	handle @auth {
+	route @auth {
 		import RATE_LIMIT_STRICT immich_auth
-		reverse_proxy http://{$IMMICH_HOST}:{$IMMICH_PORT}
 	}
 
-	# Catch-all: everything that's not auth.
+	# Catch-all reverse_proxy — last in priority order, so it only fires
+	# for requests that survived every respond filter above.
 	# `flush_interval -1` disables response buffering — needed for WebSocket
 	# upgrades (live sync notifications) and SSE-style endpoints to stream
 	# without batching. Read/write timeouts bumped to 1h so a slow mobile
 	# uplink doesn't kill a multi-GB video upload mid-stream.
-	handle {
-		reverse_proxy http://{$IMMICH_HOST}:{$IMMICH_PORT} {
-			flush_interval -1
-			transport http {
-				read_timeout 1h
-				write_timeout 1h
-			}
+	reverse_proxy http://{$IMMICH_HOST}:{$IMMICH_PORT} {
+		flush_interval -1
+		transport http {
+			read_timeout 1h
+			write_timeout 1h
 		}
 	}
 }

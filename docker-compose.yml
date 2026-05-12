@@ -37,9 +37,12 @@ services:
         max-size: "10m"
         max-file: "3"
     # Probe Caddy's admin API (bound to localhost inside the container by default).
+    # Hit 127.0.0.1 explicitly: busybox wget resolves `localhost` to ::1 first
+    # and doesn't fall back to v4 — Caddy admin only listens on IPv4, so the
+    # probe would otherwise see "connection refused" and flag unhealthy.
     # Hitting :80 would return 4xx for an unmatched Host and falsely flag unhealthy.
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:2019/config/"]
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:2019/config/"]
       interval: 30s
       timeout: 5s
       retries: 3
