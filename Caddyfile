@@ -1,0 +1,31 @@
+# Global options
+{
+    # ACME registration email (recommended for Let's Encrypt expiry notices)
+    email {$ACME_EMAIL}
+
+    # Trusted proxies must be configured at the server level (not per-site).
+    # `cloudflare` IP source is provided by github.com/WeidiDeng/caddy-cloudflare-ip
+    # — it auto-fetches and refreshes Cloudflare's published IP ranges, so this list
+    # never needs manual maintenance.
+    servers {
+        trusted_proxies cloudflare
+    }
+
+    # Caddy's own system/runtime log (ACME events, errors, startup, reloads).
+    # Per-site access logs are handled by the LOGGING snippet.
+    # Disk ceiling: 5MB (current) + 3 rolled = ~20MB; max age 7 days.
+    log default {
+        output file /data/caddy-system.log {
+            roll_size 5mb
+            roll_keep 3
+            roll_keep_for 168h
+        }
+    }
+}
+
+# Reusable snippet definitions (must come BEFORE sites that use them).
+# Glob is resolved relative to this Caddyfile's directory inside the container.
+import snippets/*.caddy
+
+# Per-site definitions (one file per service in sites/).
+import sites/*.caddy

@@ -1,0 +1,15 @@
+# Standard response security headers.
+(SECURITY_HEADERS) {
+    header {
+        # Prevent Clickjacking
+        X-Frame-Options "SAMEORIGIN"
+        # Disable sniffing of content-type
+        X-Content-Type-Options "nosniff"
+        # Force HTTPS for 1 year on this exact host.
+        Strict-Transport-Security "max-age=31536000"
+        # Referrer policy
+        Referrer-Policy "strict-origin-when-cross-origin"
+        # Remove server identification
+        -Server
+    }
+}

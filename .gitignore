@@ -1,0 +1,8 @@
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Caddy runtime data
+data/
+config/

@@ -1,0 +1,21 @@
+# Proxmox Management UI
+{$PVE_DOMAIN} {
+    import SECURITY_HEADERS
+    import CLOUDFLARE_ONLY
+    import BLOCK_BOTS
+    import LOGGING pve
+
+    # TLS via Cloudflare DNS Challenge
+    tls {
+        dns cloudflare {$CLOUDFLARE_API_TOKEN}
+        resolvers 1.1.1.1 1.0.0.1
+    }
+
+    # Proxy to Proxmox Web UI (host:port injected from .env)
+    reverse_proxy https://{$PVE_HOST}:{$PVE_PORT} {
+        transport http {
+            # Accept Proxmox self-signed cert
+            tls_insecure_skip_verify
+        }
+    }
+}

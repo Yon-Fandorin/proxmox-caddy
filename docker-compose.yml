@@ -1,0 +1,22 @@
+services:
+  caddy:
+    # CaddyBuilds image bundles caddy-dns/cloudflare + WeidiDeng/caddy-cloudflare-ip
+    # so `tls dns cloudflare` and `trusted_proxies cloudflare` both work without rebuild.
+    # Tag tracks Caddy upstream releases: https://github.com/CaddyBuilds/caddy-cloudflare/releases
+    image: ghcr.io/caddybuilds/caddy-cloudflare:2.11.2
+    container_name: caddy
+    restart: unless-stopped
+    # mem_limit intentionally omitted: unprivileged LXC + cgroup v2 lacks the
+    # cgroup delegation Docker needs to write memory.max. The LXC's own RAM
+    # cap is the effective ceiling.
+    ports:
+      - "80:80"
+      - "443:443"
+    env_file:
+      - .env
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./snippets:/etc/caddy/snippets:ro
+      - ./sites:/etc/caddy/sites:ro
+      - ./data:/data
+      - ./config:/config
